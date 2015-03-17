@@ -1,0 +1,134 @@
+<html>
+	<head>
+		<title>Three</title>
+		<script src="essential-threejs/libs/three.js"></script>
+		<script src="essential-threejs/libs/dat.gui.min.js"></script>
+		<script src="essential-threejs/libs/stats.min.js"></script>
+		  <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>		
+	</head>
+	<body>
+		<script>
+		//gloabal variable
+		var renderer;
+		var scene;
+		var camera;
+		var control;
+
+		function init(){
+			scene = new THREE.Scene();
+
+			//create a camera which defines what we looking at 
+			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+			renderer = new THREE.WebGLRenderer();
+			renderer.setClearColor(0x000000, 0.1);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.shadowMapEnabled = true;
+
+			//ground square
+			var planeGeometry = new THREE.PlaneGeometry(20, 20);
+			var planeMaterial = new THREE.MeshLambertMaterial({color: 0xcccccc});
+			var plane = new THREE.Mesh(planeGeometry, planeMaterial);
+			plane.receiveShadow = true;
+
+			// rotate and position plane
+			plane.rotation.x = -0.5 * Math.PI;
+			plane.position.x = 0;
+			plane.position.y = -2;
+			plane.position.z = 0;
+			//plane scene
+			scene.add(plane);
+
+
+			//cude creation
+			var cubeGeometry = new THREE.CubeGeometry(6, 4, 6);
+			var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000,transparent:true,opacity:0.6});	
+			var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+			cube.name='cube';
+			cube.castShadow = true;
+
+			//add cube to the scene
+			scene.add(cube);
+
+
+			//camera position
+			camera.position.x = 15;
+			camera.position.y = 16;
+			camera.position.z = 13;
+			camera.lookAt(scene.position);
+
+			//spotlight for shadows
+			var spotLight = new THREE.SpotLight(0xffffff);
+			spotLight.position.set(10, 20, 20);
+			spotLight.shadowCameraNear = 20;
+			spotLight.shadowCameraFar = 50;
+			spotLight.castShadow = true;
+
+			scene.add(spotLight);
+
+
+			//add control GUI
+			control = new function(){
+				this.rotationSpeed = 0.005;
+				this.opacity = 0.6;
+				this.color = cubeMaterial.color.getHex();
+			};
+
+			//Add extras
+			addControlGui(control);
+			addStatsObject();
+
+			//render to html
+			document.body.appendChild(renderer.domElement);
+
+			//call the render function
+			render();
+
+		}
+
+		  function addControlGui(controlObject) {
+	        var gui = new dat.GUI();
+	        gui.add(controlObject, 'rotationSpeed', -0.01, 0.01);
+	        gui.add(controlObject, 'opacity', 0.1, 1);
+	        gui.addColor(controlObject, 'color');
+	    }
+
+
+	     function addStatsObject() {
+	        stats = new Stats();
+	        stats.setMode(0);
+
+	        stats.domElement.style.position = 'absolute';
+	        stats.domElement.style.left = '0px';
+	        stats.domElement.style.top = '0px';
+
+	        document.body.appendChild( stats.domElement );
+	    }
+
+
+		function render() {
+
+			// change opacity
+	        scene.getObjectByName('cube').material.opacity = control.opacity;
+
+	        // change color
+	        scene.getObjectByName('cube').material.color = new THREE.Color(control.color);
+
+	        //update stats
+	        stats.update();
+	        // render using requestAnimationFrame
+	        requestAnimationFrame(render);
+	        renderer.render(scene, camera);
+		}
+
+		window.onload = init;
+
+		</script>	
+
+	</body>
+</html>
