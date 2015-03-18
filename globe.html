@@ -1,0 +1,197 @@
+<html>
+	<head>
+		<title>Three</title>
+		<script src="essential-threejs/libs/three.js"></script>
+		<script src="essential-threejs/libs/OrbitControls.js"></script>
+		<script src="essential-threejs/libs/dat.gui.min.js"></script>
+		<script src="essential-threejs/libs/stats.min.js"></script>
+
+		<script src="essential-threejs/libs/EffectComposer.js"></script>
+		<script src="essential-threejs/libs/RenderPass.js"></script>
+		<script src="essential-threejs/libs/CopyShader.js"></script>
+		<script src="essential-threejs/libs/ShaderPass.js"></script>
+		<script src="essential-threejs/libs/MaskPass.js"></script>
+		  <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>		
+	</head>
+	<body>
+		<script>
+		//gloabal variable
+		var renderer;
+		var scene;
+		var camera;
+		var control;
+		var stats;
+		var cameraControl;
+
+		var cameraBG;
+		var sceneBG;
+		var composer;
+        var clock;
+
+		function init(){
+			//create the scene
+			scene = new THREE.Scene();
+
+			//create a camera which defines what we looking at 
+			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+			renderer = new THREE.WebGLRenderer();
+			renderer.setClearColor(0x000000, 0.1);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.shadowMapEnabled = true;
+
+
+			 // create a sphere
+	        var sphereGeometry = new THREE.SphereGeometry(15, 30, 30);
+	        var sphereMaterial = createEarthMaterial();
+	        var earthMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+	        earthMesh.name = 'earth';
+	        scene.add(earthMesh);
+
+
+	        //clouds creation
+	        var cloudGeometry = new THREE.SphereGeometry(
+	        	sphereGeometry.parameters.radius*1.01,
+	        	sphereGeometry.parameters.widthSegments,
+	        	sphereGeometry.parameters.heightSegments); 
+
+	        //directional lights make earth look like is night at the left of the sphere
+	        var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+	        directionalLight.position = new THREE.Vector3( 100, 10, -50);
+	        directionalLight.name = 'directional';
+	        scene.add(directionalLight);
+
+	        //make things more realistic
+	        var ambientLight = new THREE.AmbientLight(0x111111);
+			scene.add(ambientLight);
+
+			cameraBG = new THREE.OrthographicCamera( 
+				-window.innerWidth,
+				 window.innerWidth,
+				 window.innerHeight,
+				-window.innerHeight,
+
+				 -10000, 10000);
+
+			cameraBG.position.z = 50;
+			//render the starts
+			sceneBG = new THREE.Scene();
+			var materialColor = new THREE.MeshBasicMaterial({
+				map: THREE.ImageUtils.loadTexture(
+					"../essential-threejs/assets/textures/planets/starry_background.jpg")
+			});
+			var bgPlane = new THREE.Mesh(
+				new THREE.PlaneGeometry( 1, 1), materialColor);
+			bgPlane.position.z = -100;
+			bgPlane.scale.set(
+				window.innerWidth * 2, window.innerHeight * 2, 1);
+			sceneBG.add(bgPlane);
+
+			//setup the passes
+			var bgPass = new THREE.RenderPass(sceneBG, cameraBG);
+			var renderPass = new THREE.RenderPass(scene, camera);
+			renderPass.clear = false;
+			var effectCopy = new THREE.ShaderPass(THREE.CopyShader);
+			effectCopy.renderToScreen = true;
+
+			// add these passes to the composer
+			composer = new THREE.EffectComposer(renderer);
+			composer.addPass(bgPass);
+			composer.addPass(renderPass);
+			composer.addPass(effectCopy);
+
+			//camera position
+			camera.position.x = 35;
+			camera.position.y = 36;
+			camera.position.z = 33;
+			camera.lookAt(scene.position);
+
+			 // add controls
+       		 cameraControl = new THREE.OrbitControls(camera);
+
+			control = new function(){
+				this.rotationSpeed = 0.005;
+				this.opacity = 0.6;
+			};
+
+			// add Extras
+			addControlGui(control);
+			addStatsObject();
+
+			document.body.appendChild(renderer.domElement);
+			render();
+
+		}
+
+		function createEarthMaterial() {
+        var earthTexture = THREE.ImageUtils.loadTexture("../essential-threejs/assets/textures/planets/earthmap4k.jpg");
+
+        var earthMaterial = new THREE.MeshPhongMaterial();
+        earthMaterial.map = earthTexture;
+
+        return earthMaterial;
+    }
+
+    function createCloudMaterial() {
+        var cloudTexture = THREE.ImageUtils.loadTexture("../essential-threejs/assets/textures/planets/fair_clouds_4k.png");
+
+        var cloudMaterial = new THREE.MeshBasicMaterial();
+        cloudMaterial.map = cloudTexture;
+        cloudMaterial.transparent = true;
+˝
+
+        return cloudMaterial;
+    }
+
+		function addControlGui(controlObject){
+			var gui = new dat.GUI();
+			gui.add(controlObject, 'rotationSpeed', -0.01, 0.01);	
+		}
+
+		function addStatsObject(){
+			stats = new Stats();
+			stats.setMode(0);
+
+			 stats.domElement.style.position = 'absolute';
+	        stats.domElement.style.left = '0px';
+	        stats.domElement.style.top = '0px';
+
+	        document.body.appendChild(stats.domElement);
+		}
+	 
+		function render() {
+
+			stats.update();
+
+			cameraControl.update();
+
+			renderer.outoClear = false;
+			composer.render();
+
+			scene.getObjectByName('earth').rotation.y+=control.rotationSpeed;
+
+	        // render using requestAnimationFrame
+	        requestAnimationFrame(render);
+	        renderer.render(scene, camera);
+		}
+
+		//responsive camera
+	    function handleResize() {
+	        camera.aspect = window.innerWidth / window.innerHeight;
+	        camera.updateProjectionMatrix();
+	        renderer.setSize(window.innerWidth, window.innerHeight);
+	    }
+
+	    window.onload = init;
+	    // calls the handleResize function when the window is resized
+	    window.addEventListener('resize', handleResize, false);
+
+		</script>	
+
+	</body>
+</html>
