@@ -1,21 +1,22 @@
 <html>
 	<head>
 		<title>Three</title>
-		<script src="essential-threejs/libs/three.js"></script>
-		<script src="essential-threejs/libs/OrbitControls.js"></script>
-		<script src="essential-threejs/libs/dat.gui.min.js"></script>
-		<script src="essential-threejs/libs/stats.min.js"></script>
+		<script src="libs/three.js"></script>
+		<script src="libs/OrbitControls.js"></script>
+		<script src="libs/dat.gui.min.js"></script>
+		<script src="libs/stats.min.js"></script>
 
-		<script src="essential-threejs/libs/EffectComposer.js"></script>
-		<script src="essential-threejs/libs/RenderPass.js"></script>
-		<script src="essential-threejs/libs/CopyShader.js"></script>
-		<script src="essential-threejs/libs/ShaderPass.js"></script>
-		<script src="essential-threejs/libs/MaskPass.js"></script>
+		<script src="libs/EffectComposer.js"></script>
+		<script src="libs/RenderPass.js"></script>
+		<script src="libs/CopyShader.js"></script>
+		<script src="libs/ShaderPass.js"></script>
+		<script src="libs/MaskPass.js"></script>
 		  <style>
         body {
             margin: 0;
             overflow: hidden;
         }
+
     </style>		
 	</head>
 	<body>
@@ -33,163 +34,168 @@
 		var composer;
         var clock;
 
-		function init(){
-			//create the scene
-			scene = new THREE.Scene();
+			function init() {
 
-			//create a camera which defines what we looking at 
-			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            clock = new THREE.Clock();
 
-			renderer = new THREE.WebGLRenderer();
-			renderer.setClearColor(0x000000, 0.1);
-			renderer.setSize(window.innerWidth, window.innerHeight);
-			renderer.shadowMapEnabled = true;
+            // create a scene, that will hold all our elements such as objects, cameras and lights.
+            scene = new THREE.Scene();
+
+            // create a camera, which defines where we're looking at.
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            // create a render, sets the background color and the size
+            renderer = new THREE.WebGLRenderer();
+            renderer.setClearColor(0x000000, 1.0);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMapEnabled = true;
+
+            // create a sphere
+            var sphereGeometry = new THREE.SphereGeometry(15, 60, 60);
+            var sphereMaterial = createEarthMaterial();
+            var earthMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            earthMesh.name = 'earth';
+            scene.add(earthMesh);
+
+            // create a cloudGeometry, slighly bigger than the original sphere
+            var cloudGeometry = new THREE.SphereGeometry(15.3, 60, 60);
+            var cloudMaterial = createCloudMaterial();
+            var cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            cloudMesh.name = 'clouds';
+            scene.add(cloudMesh);
+
+            // now add some better lighting
+            var ambientLight = new THREE.AmbientLight(0x111111);
+            ambientLight.name='ambient';
+            scene.add(ambientLight);
+
+            // add sunlight (light
+            var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position = new THREE.Vector3(100,10,-50);
+            directionalLight.name='directional';
+            scene.add(directionalLight);
+
+            // position and point the camera to the center of the scene
+            camera.position.x = 25;
+            camera.position.y = 10;
+            camera.position.z = 23;
+            camera.lookAt(scene.position);
+
+            // add controls
+            cameraControl = new THREE.OrbitControls(camera);
+
+            // setup the control object for the control gui
+            control = new function () {
+            this.rotationSpeed = 0.001;
+            this.ambientLightColor = ambientLight.color.getHex();
+            this.directionalLightColor = directionalLight.color.getHex();
+            };
+
+            // add extras
+            addControlGui(control);
+            addStatsObject();
 
 
-			 // create a sphere
-	        var sphereGeometry = new THREE.SphereGeometry(15, 30, 30);
-	        var sphereMaterial = createEarthMaterial();
-	        var earthMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-	        earthMesh.name = 'earth';
-	        scene.add(earthMesh);
+            // add background using a camera
+            cameraBG = new THREE.OrthographicCamera(-window.innerWidth, window.innerWidth, window.innerHeight, -window.innerHeight, -10000, 10000);
+            cameraBG.position.z = 50;
+            sceneBG = new THREE.Scene();
 
 
-	        //clouds creation
-	        var cloudGeometry = new THREE.SphereGeometry(
-	        	sphereGeometry.parameters.radius*1.01,
-	        	sphereGeometry.parameters.widthSegments,
-	        	sphereGeometry.parameters.heightSegments); 
 
-	        //directional lights make earth look like is night at the left of the sphere
-	        var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-	        directionalLight.position = new THREE.Vector3( 100, 10, -50);
-	        directionalLight.name = 'directional';
-	        scene.add(directionalLight);
+            // setup the composer steps
+            // first render the background
+            var bgPass = new THREE.RenderPass(sceneBG, cameraBG);
+            // next render the scene (rotating earth), without clearing the current output
+            var renderPass = new THREE.RenderPass(scene, camera);
+            renderPass.clear = false;
+            // finally copy the result to the screen
+            var effectCopy = new THREE.ShaderPass(THREE.CopyShader);
+            effectCopy.renderToScreen = true;
 
-	        //make things more realistic
-	        var ambientLight = new THREE.AmbientLight(0x111111);
-			scene.add(ambientLight);
+            // add these passes to the composer
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(bgPass);
+            composer.addPass(renderPass);
+            composer.addPass(effectCopy);
 
-			cameraBG = new THREE.OrthographicCamera( 
-				-window.innerWidth,
-				 window.innerWidth,
-				 window.innerHeight,
-				-window.innerHeight,
+   
+            document.body.appendChild(renderer.domElement);
+            render();
+        }
 
-				 -10000, 10000);
 
-			cameraBG.position.z = 50;
-			//render the starts
-			sceneBG = new THREE.Scene();
-			var materialColor = new THREE.MeshBasicMaterial({
-				map: THREE.ImageUtils.loadTexture(
-					"../essential-threejs/assets/textures/planets/starry_background.jpg")
-			});
-			var bgPlane = new THREE.Mesh(
-				new THREE.PlaneGeometry( 1, 1), materialColor);
-			bgPlane.position.z = -100;
-			bgPlane.scale.set(
-				window.innerWidth * 2, window.innerHeight * 2, 1);
-			sceneBG.add(bgPlane);
+        function createEarthMaterial() {
+            var earthTexture = THREE.ImageUtils.loadTexture("../assets/textures/planets/earthspec4k.jpg");
+            var normalMap = THREE.ImageUtils.loadTexture("../assets/textures/planets/earth_normalmap_flat4k.jpg");
+            var earthMaterial = new THREE.MeshPhongMaterial();
+            earthMaterial.map = earthTexture;
+            earthMaterial.normalMap = normalMap;
+            earthMaterial.normalScale = new THREE.Vector2(0.5, 0.7);
 
-			//setup the passes
-			var bgPass = new THREE.RenderPass(sceneBG, cameraBG);
-			var renderPass = new THREE.RenderPass(scene, camera);
-			renderPass.clear = false;
-			var effectCopy = new THREE.ShaderPass(THREE.CopyShader);
-			effectCopy.renderToScreen = true;
+            return earthMaterial;
+            }
 
-			// add these passes to the composer
-			composer = new THREE.EffectComposer(renderer);
-			composer.addPass(bgPass);
-			composer.addPass(renderPass);
-			composer.addPass(effectCopy);
+        function createCloudMaterial() {
+            var cloudTexture = THREE.ImageUtils.loadTexture("../assets/textures/planets/fair_clouds_4k.png");
 
-			//camera position
-			camera.position.x = 35;
-			camera.position.y = 36;
-			camera.position.z = 33;
-			camera.lookAt(scene.position);
+            var cloudMaterial = new THREE.MeshPhongMaterial();
+            cloudMaterial.map = cloudTexture;
+            cloudMaterial.transparent = true;
 
-			 // add controls
-       		 cameraControl = new THREE.OrbitControls(camera);
+            return cloudMaterial;
+            }
 
-			control = new function(){
-				this.rotationSpeed = 0.005;
-				this.opacity = 0.6;
-			};
+        function addControlGui(controlObject) {
+            var gui = new dat.GUI();
+            gui.add(controlObject, 'rotationSpeed', -0.01, 0.01);
+            gui.addColor(controlObject, 'ambientLightColor');
+            gui.addColor(controlObject, 'directionalLightColor');
+            }
 
-			// add Extras
-			addControlGui(control);
-			addStatsObject();
+        function addStatsObject() {
+            stats = new Stats();
+            stats.setMode(0);
 
-			document.body.appendChild(renderer.domElement);
-			render();
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.left = '0px';
+            stats.domElement.style.top = '0px';
 
-		}
+            document.body.appendChild(stats.domElement);
+            }
 
-		function createEarthMaterial() {
-        var earthTexture = THREE.ImageUtils.loadTexture("../essential-threejs/assets/textures/planets/earthmap4k.jpg");
+        function render() {
 
-        var earthMaterial = new THREE.MeshPhongMaterial();
-        earthMaterial.map = earthTexture;
+       
+            stats.update();
 
-        return earthMaterial;
-    }
+           
+            cameraControl.update();
 
-    function createCloudMaterial() {
-        var cloudTexture = THREE.ImageUtils.loadTexture("../essential-threejs/assets/textures/planets/fair_clouds_4k.png");
+            scene.getObjectByName('earth').rotation.y+=control.rotationSpeed;
+            scene.getObjectByName('clouds').rotation.y+=control.rotationSpeed*1.1;
 
-        var cloudMaterial = new THREE.MeshBasicMaterial();
-        cloudMaterial.map = cloudTexture;
-        cloudMaterial.transparent = true;
-˝
+            // update light colors
+            scene.getObjectByName('ambient').color = new THREE.Color(control.ambientLightColor);
+            scene.getObjectByName('directional').color = new THREE.Color(control.directionalLightColor);
 
-        return cloudMaterial;
-    }
+        
+            renderer.autoClear = false;
+            composer.render();
 
-		function addControlGui(controlObject){
-			var gui = new dat.GUI();
-			gui.add(controlObject, 'rotationSpeed', -0.01, 0.01);	
-		}
+            // render using requestAnimationFrame
+            requestAnimationFrame(render);
+            }
 
-		function addStatsObject(){
-			stats = new Stats();
-			stats.setMode(0);
 
-			 stats.domElement.style.position = 'absolute';
-	        stats.domElement.style.left = '0px';
-	        stats.domElement.style.top = '0px';
+        function handleResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            }
 
-	        document.body.appendChild(stats.domElement);
-		}
-	 
-		function render() {
-
-			stats.update();
-
-			cameraControl.update();
-
-			renderer.outoClear = false;
-			composer.render();
-
-			scene.getObjectByName('earth').rotation.y+=control.rotationSpeed;
-
-	        // render using requestAnimationFrame
-	        requestAnimationFrame(render);
-	        renderer.render(scene, camera);
-		}
-
-		//responsive camera
-	    function handleResize() {
-	        camera.aspect = window.innerWidth / window.innerHeight;
-	        camera.updateProjectionMatrix();
-	        renderer.setSize(window.innerWidth, window.innerHeight);
-	    }
-
-	    window.onload = init;
-	    // calls the handleResize function when the window is resized
-	    window.addEventListener('resize', handleResize, false);
+        window.onload = init;
+        window.addEventListener('resize', handleResize, false);
 
 		</script>	
 
